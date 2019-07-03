@@ -25,6 +25,8 @@ vec operator*(const float& k, const vec& v);
 vec& operator+=(vec& v, const vec& dv);
 vec& operator-=(vec& v, const vec& dv);
 vec operator*=(vec& v, const float& k);
+ostream& operator<<(ostream& out, vec& v);
+istream& operator>>(istream& in, vec& v);
 
 #endif // !_GAME_MATH_H
 

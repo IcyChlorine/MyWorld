@@ -22,8 +22,18 @@ vec& operator-=(vec& v, const vec& dv)
 	v = v - dv;
 	return v;
 }
-vec operator*=(vec& v, const T& k)
+vec operator*=(vec& v, const float& k)
 {
 	v = k*v;
 	return v;
+}
+ostream& operator<<(ostream& out, vec& v)
+{
+	out << v.x << " " << v.y << " " << v.z;
+	return out;
+}
+istream& operator >> (istream& in, vec& v)
+{
+	in >> v.x >> v.y >> v.z;
+	return in;
 }
