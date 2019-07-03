@@ -135,7 +135,6 @@ private:
 		return;
 	}
 public:
-
 	friend ostream& operator<<(ostream& out, Chunk& c)
 	{
 		out << c.r << endl;
