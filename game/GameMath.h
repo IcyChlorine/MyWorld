@@ -19,6 +19,7 @@ struct vec
 		
 	}
 };
+bool operator==(const vec& v1, const vec& v2);
 vec operator+(const vec& v1, const vec& v2);
 vec operator-(const vec& v1, const vec& v2);
 vec operator*(const float& k, const vec& v);

@@ -5,7 +5,8 @@
 #include"Entity.h"
 
 using namespace std;
-typedef int(*Chunk)[256][16];
+
+const int chunk_size = 16;
 class Chunk
 {
 public:
@@ -13,14 +14,61 @@ public:
 	int arr[16][256][16];
 	list<Entity> entities;
 
-	Chunk()
-	{
-		memset(arr, 0, sizeof(arr));
-	}
+	//Chunk(string filename = "")
+	//{
+	//	memset(arr, 0, sizeof(arr));
+	//	Init(filename);
+	//}
 	Chunk(vec& r) :r{ r }
 	{
 		memset(arr, 0, sizeof(arr));
+		char filename[99];
+		sprintf(filename, "map\\%d-%d-%d.chk", (int)r.x, (int)r.y, (int)r.z);
+		Init(filename);
 	}
+	~Chunk()
+	{
+		char filename[99];
+		sprintf(filename, "map\\%d-%d-%d.chk", r.x, r.y, r.z);
+		Save(filename);
+	}
+	void Init(string filename="")//初始化区块
+	{
+		//初始化地形——仅在不从文件中读取，第一次创建区块时使用
+		if (filename == "")
+		{
+			memset(arr, 0, sizeof(arr));
+			for (int i = 0; i < 16; i++)
+			{
+				for (int j = 0; j < 16; j++)
+				{
+					arr[i][0][j] = 1;
+					arr[i][1][j] = 1;
+				}
+			}
+			for (int i = 0; i < 16; i++)
+				arr[i][1][0] = 2,
+				arr[0][1][i] = 2;
+		}
+		else//从文件中读取的情形
+		{
+			ifstream fin(filename);
+			if (!fin)//文件不存在，那只好再重新建一个
+			{
+				Init();
+			}
+			else//从文件中读取
+			{
+				fin >> (*this);
+			}
+		}
+	}
+	void Save(string filename)
+	{
+		fstream fout(filename);
+		fout << *this;
+	}
+
 	int& rl_at(int x, int y, int z)//按相对坐标取数据
 	{
 		return arr[x][y][z];
@@ -61,7 +109,6 @@ private:
 		return;
 	}
 
-
 	// 与CodeOctTree相对应，用于解析一棵八分树，从in中读取，写到c中
 	void _DecodeOctTree(istream& in, int rx, int ry, int rz, int a)
 	{
@@ -87,15 +134,16 @@ private:
 		//将这一区域填满u
 		return;
 	}
+public:
 
 	friend ostream& operator<<(ostream& out, Chunk& c)
 	{
-		out << r << endl;
+		out << c.r << endl;
 		//每个区块存储在16棵八分树中，每棵树存储了[16][16][16]的数据
 		for (int i = 0; i < 16; i++)
 		{
 			out << i << " " << endl;
-			CodeOctTree(fout, c, 0, 16 * i, 0, 16);
+			c._CodeOctTree(out, 0, 16 * i, 0, 16);
 			out << endl;
 			//读取数据
 		}
@@ -103,48 +151,45 @@ private:
 	}
 	friend istream& operator>>(istream& in, Chunk& c)
 	{
-		in >> r;
+		in >> c.r;
 		//每个区块存储在16棵八分树中，每棵树存储了[16][16][16]的数据
 		for (int i = 0; i < 16; i++)
 		{
 			in >> i;
-			_DecodeOctTree(in, 0, 16 * i, 0, 16);
+			c._DecodeOctTree(in, 0, 16 * i, 0, 16);
 			//读取数据
 		}
 		return in;
 	}
 };
-/*class Map
+class Map
 {
 private:
-Chunk* Data;	//arraies that really save data
-int a;			//边长，即地图将在内存中加载a*a个区块
-int vOrigin[3];	//地图原点位置/偏移大小
+	deque<deque<Chunk*>> data;//arraies that really save data
+										//第一维对应x方向，第二维对应z方向
+	int loading_radius;			//加载半径，即实时加载（2r-1)*(2r-1)个区块
+	vec r;	//加载的那部分地图的中心区块所在位置
+
+
 public:
-Map(int _a=3);	//初始在(0,0,0)
-~Map(void);
+	Map(int loading_radius = 2);	//初始在(0,0,0)
+	~Map(void);
 
-int& operator()(int x,int y,int z);
-int& operator()(float x, float y, float z);
-//int& at(vec r){return this->operator()(r) }
+	//都是绝对坐标
+	int& operator()(int x, int y, int z);
+	int& operator()(float x, float y, float z);
+	inline int& at(int x, int y, int z) { return this->operator()(x, y, z); }
+	inline int& at(float x, float y, float z) { return this->operator()(x, y, z); }
+	inline int& at(vec r) { return this->operator()(r.x, r.y, r.z); }
 
-// 从文件中加载区块，若不存在则创建之
-Chunk LoadChunk(int x, int y, int z);
-bool InitChunk(Chunk c);
-// 保存一个区块
-bool SaveChunk(int x,int y,int z,Chunk c);
-
-//渲染以c为中心，半径为range的区域
-void RenderAround(cord c,int Range=16);
-// Set the location of central Chunk,Data[5]
-bool LoadAround(int x, int y, int z,bool SmartLoad=true);
-// 将一部分地图数据转化为八分树，八分树写到out中，用以减少数据冗余度
-void CodeOctTree(ostream& out, Chunk c, int x0, int y0, int z0, int a);
-// 与CodeOctTree相对应，用于解析一棵八分树，从in中读取，写到c中
-void DecodeOctTree(istream& in, Chunk c, int x0, int y0, int z0, int a);
-// 保存所有现在加载的区块
-void Save();
-};*/
+	//先把画方块的函数放到class里面
+	void RenderCube(float x, float y, float z, float a, int id);
+	//渲染以c为中心，半径为range的区域
+	void RenderAround(vec c, int Range = 16);
+	// Set the location of central Chunk,Data[5]
+	bool LoadAround(int x, int y, int z, bool SmartLoad = true);
+	inline bool LoadAround(vec r) { return LoadAround(r.x, r.y, r.z); }
+};
 
 
 #endif // !_MAP_H

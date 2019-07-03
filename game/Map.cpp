@@ -1,112 +1,39 @@
-//#include "Map.h"
+#include "Map.h"
 #include "GameClasses.h"
-//#include "render.h"
 
-Map::Map(int _a)
+Map::Map(int loading_radius) :loading_radius{ loading_radius }
 {
-	if (!(_a % 2))_a++;
-	//为了方便起见，地图由a*a个区块组成的话，a最好是奇数
-	a=_a;
-	LoadAround(0, 0, 0);
+	r = vec{ 0,0,0 };//特地强调
+	if (loading_radius <= 0) loading_radius = 1;
+	LoadAround(r);
 }
 
 Map::~Map(void)
 {	
-	Save();
-	for(int i=0;i<a*a;i++)
-		delete Data[i];
-	delete[] Data;
+	for (int i = 0; i < data.size(); i++)
+		for (int j = 0; j < data[i].size(); j++)
+			delete data[i][j];
 }
 
 int& Map::operator()(int x,int y,int z)
 {
 	static int rx,rz;
-	static int tmp = 0;
+	static int WTF = 0;
 	//relative coordinate，相对于地图原点的坐标
 	//地图原点在地图一角，不是中心
-	//地图原点：vOrigin
-	rx=x-vOrigin[0];
-	rz=z-vOrigin[2];
-	if (rx < 0 || rz < 0 || y >= 256 || y < 0 || rx >= 16 * a || rz >= 16 * a)
+	//地图原点：r
+	rx=x-r.x;
+	rz=z-r.z;
+	if (rx < 0 || rz < 0 || y >= 256 || y < 0 || rx >= chunk_size*2*loading_radius || chunk_size * 2 * loading_radius)
 		//MessageBox(NULL,"Map Access Violation.","",MB_OK);
-		return tmp;//返回一个可以随意更改的变量
-	return (Data[(rz/16)*a+(rx/16)])[rx%16][y][rz%16];
+		return WTF;//返回一个可以随意更改的变量
+	return (data[rz / 16][rx / 16]->rl_at(rx % 16, y, rz % 16));
 }
 int& Map::operator()(float x, float y, float z)
 {
 	return (*this)((int)floor(x), (int)floor(y), (int)floor(z));
 }
 
-// 从文件中加载区块，若不存在则创建之
-Chunk Map::LoadChunk(int x, int y, int z)
-{
-	char str[99];
-	sprintf(str, "map\\%d-%d-%d.chk", x, y, z);
-	ifstream fin(str);
-	Chunk c = new int[16][256][16];
-	if (!fin)//区块不存在，则创建之
-	{
-		Chunk c = new int[16][256][16];
-		InitChunk(c);
-		return c;
-	}
-	else
-	{
-		fin >> x >> y >> z;
-		//每个区块存储在16棵八分树中，每棵树存储了[16][16][16]的数据
-		for (int i = 0; i < 16; i++)
-		{
-			fin >> i;
-			DecodeOctTree(fin, c, 0, 16 * i, 0, 16);
-			//读取数据
-		}
-		fin.close();
-		return c;
-	}
-}
-
-//初始化一个区块
-bool Map::InitChunk(Chunk c)
-{
-	memset(c, 0, sizeof(int) * 16 * 256 * 16);
-	/*for(int i=0;i<16;i++)
-	{for(int j=0;j<256;j++)
-	{for(int k=0;k<16;k++)
-	{
-		(Data[Index])[i][j][k]=0;
-	}}}*/
-	for(int i=0;i<16;i++)
-	{for(int j=0;j<16;j++)
-	{
-		c[i][0][j] = 1;
-		c[i][1][j] = 1;
-	}}
-	for (int i = 0; i < 16; i++)
-		c[i][1][0] = 2,
-		c[0][1][i] = 2;
-		
-	return true;
-}
-
-// 保存一个区块
-bool Map::SaveChunk(int x, int y, int z, Chunk c)
-{
-	char str[99];
-	sprintf(str, "map\\%d-%d-%d.chk", x, y, z);
-	ofstream fout(str);
-
-	fout << x << " " << y << " " << z << " "<<endl;
-	//每个区块存储在16棵八分树中，每棵树存储了[16][16][16]的数据
-	for (int i = 0; i < 16; i++)
-	{
-		fout << i << " "<<endl;
-		CodeOctTree(fout, c, 0, 16 * i, 0, 16);
-		fout << endl;
-		//读取数据
-	}
-	fout.close();
-	return true;
-}
 
 //每个方块的纹理有三个，[0]是上表面纹理，[1]是侧面纹理，[2]是底面纹理
 //其中，[1] [2]为零代表侧面/底面纹理和上表面纹理一样
@@ -215,167 +142,88 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 	//由于要处理负数，因此%/*不能使用，最好的方法就是用floor
 	x = (int)floor((float)x / 16) * 16;
 	z = (int)floor((float)z / 16) * 16;
-	int vNew[3];	//vNewOrigin
-	vNew[0] = x - 16 * (a / 2);
-	vNew[1] = 0;
-	vNew[2] = z - 16 * (a / 2);
+	vec rNew;	//vNewOrigin
+	rNew[0] = x - 16 * loading_radius;
+	rNew[1] = 0;
+	rNew[2] = z - 16 * loading_radius;
 	//由x,y,z换算到新vOrigin的位置
 	//注意x,y,z是指地图中心区块内的某位置，而vOrigin则是地图一角的位置
-	if (SmartLoad)
-	{
-		if (!Data)
-		{
-			Data = new Chunk[a*a];
-			for (int i = 0; i < a; i++)
-				for (int j = 0; j < a; j++)
-					Data[i*a + j] = LoadChunk(vNew[0] + j * 16, 0, vNew[2] + i * 16);
-			memcpy(vOrigin, vNew, sizeof(int) * 3);
-			return true;
-		}
-		else
-		{
-			if (vNew[0] == vOrigin[0] && vNew[2] == vOrigin[2])//不需要变化
-				return true;
-			else if (abs(vNew[0] - vOrigin[0]) > 16 || abs(vNew[2] - vOrigin[2]) > 16)
-			{
-				Save();
-				for (int i = 0; i < a; i++)
-					for (int j = 0; j < a; j++)
-						Data[a*j + i] = LoadChunk(vNew[0] + 16 * j, 0, vNew[2] + 16 * i);
-				memcpy(vOrigin, vNew, sizeof(int) * 3);
-				return true;
-			}
-			else//地图向某个方向前滚了一个Chunk，则只需要加载新靠近的Chunks，保存远去的Chunks即可
-			{
-				if (vNew[0] == vOrigin[0] + 16)//x轴向正方向移动了一个区块
-				{
-					for (int i = 0; i < a; i++)
-					{
-						SaveChunk(vOrigin[0], 0, vOrigin[2] + i * 16, Data[i*a]);
-						for (int j = 0; j < a - 1; j++)
-							Data[i*a + j] = Data[i*a + (j + 1)];
-						Data[i*a + a - 1] = LoadChunk(vNew[0] + 16 * (a - 1), 0, vNew[2] + i * 16);
-					}
-				}
-				else if (vNew[0] == vOrigin[0] - 16)//x轴向负方向移动了一个区块
-				{
-					for (int i = 0; i < a; i++)
-					{
-						SaveChunk(vOrigin[0] + 16 * (a - 1), 0, vOrigin[2] + 16 * i, Data[i*a + a - 1]);;
-						for (int j = a - 1; j >= 0; j--)
-							Data[i*a + j] = Data[i*a + (j - 1)];
-						Data[i*a] = LoadChunk(vNew[0], 0, vNew[2] + i * 16);
-					}
-				}
-				else if (vNew[2] == vOrigin[2] + 16)//z轴向正方向移动了一个区块
-				{
-					for (int j = 0; j < a; j++)
-					{
-						SaveChunk(vOrigin[0] + j * 16, 0, vOrigin[2], Data[j]);
-						for (int i = 0; i < a - 1; i++)
-							Data[i*a + j] = Data[(i + 1)*a + j];
-						Data[a*(a - 1) + j] = LoadChunk(vNew[0] + 16 * j, 0, vNew[2] + (a - 1) * 16);
-					}
-				}
-				else if (vNew[2] == vOrigin[2] - 16)//z轴向负方向移动了一个区块
-				{
-					for (int j = 0; j < a; j++)
-					{
-						SaveChunk(vOrigin[0] + j * 16, 0, vOrigin[2] + (a - 1) * 16, Data[a*(a - 1) + j]);
-						for (int i = a - 1; i >= 0; i--)
-							Data[i*a + j] = Data[(i - 1)*a + j];
-						Data[j] = LoadChunk(vNew[0] + 16 * j, 0, vNew[2]);
-					}
-				}
 
-				memcpy(vOrigin, vNew, sizeof(int) * 3);
-				return true;
-			}
+	if (data.empty())
+	{
+		data.resize(2 * loading_radius + 1);
+		for (int i = 0; i <= 2 * loading_radius; i++)
+		{
+			data[i].resize(2 * loading_radius + 1);
+			for (int j = 0; j <= 2 * loading_radius; j++)
+				//data[i][j] = LoadChunk(vNew[0] + j * 16, 0, vNew[2] + i * 16);
+				data[i][j] = new Chunk(rNew + chunk_size*vec(i, 0, j));
 		}
 	}
-	else//没有SmartLoad的情况
+	else
 	{
-		if (!Data)
+		if (r==rNew)//不需要变化
+			return true;
+		else if (abs(r[0] - rNew[0]) > chunk_size || abs(r[2] - rNew[2]) > chunk_size)//前后离得太远，还是重新加载所有区块吧
 		{
-			return false;
+			for (int i = 0; i < data.size(); i++)
+			{
+				for (int j = 0; j < data[i].size(); j++)
+				{
+					delete data[i][j];//chunk类的析构函数中包含了保存的过程了
+					data[i][j] = new Chunk(rNew + chunk_size*vec(i, 0, j));
+				}
+			}
 		}
-		else
+		//以下是我辛苦钻研的滚动时加载技术
+		else//地图向某个方向前滚了一个Chunk，则只需要加载新靠近的Chunks，保存远去的Chunks即可
 		{
-			Save();
-			for (int i = 0; i < a; i++)
-				for (int j = 0; j < a; j++)
-					Data[a*j + i] = LoadChunk(vNew[0] + 16 * j, 0, vNew[2] + 16 * i);
-			memcpy(vOrigin, vNew, sizeof(int) * 3);
+			if (rNew[0] = r[0] + chunk_size)//x轴向正方向移动了一个区块
+			{
+				for (int j = 0; j < data.size(); j++)
+				{
+					delete data[0][j];
+				}
+				data.push_back(data.front());
+				data.pop_front();//滚动式加载；类似链环旋转
+				for (int j = 0; j < data.size(); j++)
+					data[2 * loading_radius][j] = new Chunk(rNew + chunk_size*vec(2 * loading_radius, 0, j));
+			}
+			else if (rNew[0] = r[0] - chunk_size)//x轴向正方向移动了一个区块
+			{
+				for (int j = 0; j < data.size(); j++)
+				{
+					delete data[2*loading_radius][j];
+				}
+				data.push_front(data.back());
+				data.pop_back();//滚动式加载；类似链环旋转
+				for (int j = 0; j < data.size(); j++)
+					data[0][j] = new Chunk(rNew + chunk_size*vec(0, 0, j));
+			}
+			else if (rNew[2] = r[2] + chunk_size)//z轴向正方向移动了一个区块
+			{
+				for (int i = 0; i < data.size();i++)
+				{
+					delete data[i][0];
+					data[i].pop_front();
+					data[i].push_back(new Chunk(rNew + chunk_size*vec(i, 0, 2 * loading_radius)));
+				}
+			}
+			else if (rNew[2] = r[2] - chunk_size)//z轴向正方向移动了一个区块
+			{
+				for (int i = 0; i < data.size(); i++)
+				{
+					delete data[i].back();
+					data[i].pop_back();
+					data[i].push_front(new Chunk(rNew + chunk_size*vec(i, 0, 0)));
+				}
+			}
+			r = rNew;
 			return true;
 		}
 	}
 
+
 	
 	
-}
-
-
-// 将一部分地图数据转化为八分树，八分树写到out中，用以减少数据冗余度
-void Map::CodeOctTree(ostream& out, Chunk c, int x0, int y0, int z0, int a)
-{
-	int u = c[x0][y0][z0];
-	bool flag = true;//这一部分的数据是否完全一样 true代表一样，只要用一个结点就可以表示
-	//false代表不完全一样，需要建子树
-	for (int dx = 0; dx < a&&flag; dx++)
-		for (int dy = 0; dy < a&&flag; dy++)
-			for (int dz = 0; dz < a&&flag; dz++)
-				if (c[x0 + dx][y0 + dy][z0 + dz] != u)
-					flag = false;
-	if (flag)
-		out << u << " ";//为了读入方便，两个结点数据之间加一个空格
-	else
-	{
-		out << -1 << " ";//-1是结点标志，代表还没到叶子
-		CodeOctTree(out, c, x0 + a / 2, y0 + a / 2, z0 + a / 2, a / 2);
-		CodeOctTree(out, c, x0 + a / 2, y0 + a / 2, z0          , a / 2);
-		CodeOctTree(out, c, x0 + a / 2, y0          , z0 + a / 2, a / 2);
-		CodeOctTree(out, c, x0 + a / 2, y0          , z0          , a / 2);
-		CodeOctTree(out, c, x0          , y0 + a / 2, z0 + a / 2, a / 2);
-		CodeOctTree(out, c, x0          , y0 + a / 2, z0          , a / 2);
-		CodeOctTree(out, c, x0          , y0          , z0 + a / 2, a / 2);
-		CodeOctTree(out, c, x0          , y0          , z0          , a / 2);
-		//递归调用
-	}
-	return;
-}
-
-
-// 与CodeOctTree相对应，用于解析一棵八分树，从in中读取，写到c中
-void Map::DecodeOctTree(istream& in, Chunk c, int x0, int y0, int z0, int a)
-{
-	int u;
-	in >> u;
-	if (u == -1)//遇到非叶子节点
-	{
-		DecodeOctTree(in, c, x0 + a / 2, y0 + a / 2, z0 + a / 2, a / 2);
-		DecodeOctTree(in, c, x0 + a / 2, y0 + a / 2, z0          , a / 2);
-		DecodeOctTree(in, c, x0 + a / 2, y0          , z0 + a / 2, a / 2);
-		DecodeOctTree(in, c, x0 + a / 2, y0          , z0          , a / 2);
-		DecodeOctTree(in, c, x0          , y0 + a / 2, z0 + a / 2, a / 2);
-		DecodeOctTree(in, c, x0          , y0 + a / 2, z0          , a / 2);
-		DecodeOctTree(in, c, x0          , y0          , z0 + a / 2, a / 2);
-		DecodeOctTree(in, c, x0          , y0          , z0          , a / 2);
-		//递归调用
-	}
-	else
-		for (int dx = 0; dx < a; dx++)
-			for (int dy = 0; dy < a; dy++)
-				for (int dz = 0; dz < a; dz++)
-					c[x0 + dx][y0 + dy][z0 + dz] = u;
-	//将这一区域填满u
-	return;
-}
-
-
-// 保存所有现在加载的区块
-void Map::Save()
-{
-	for (int i = 0; i < a; i++)
-		for (int j = 0; j < a; j++)
-			SaveChunk(vOrigin[0] + j * 16, 0, vOrigin[2] + i * 16, Data[i*a + j]);
 }
