@@ -1,6 +1,9 @@
 #pragma once
 #ifndef _STDAFX_H
+#define _STDAFX_H
+
 #define _CRT_SECURE_NO_WARNINGS
+#undef UNICODE
 
 #pragma comment( linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"" ) // 设置入口地址
 #include<windows.h>
