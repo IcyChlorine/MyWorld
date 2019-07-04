@@ -10,7 +10,7 @@
 struct Camera
 {
 public:
-	vec r;//位矢
+	vec<float> r;//位矢
 	float theta{ 0.0f }, phi{ 0.0f };
 	//theta 向左逆时针旋转的度数
 	//phi “抬头”的度数，-90-90
@@ -33,9 +33,9 @@ public:
 		glRotatef(theta, 0.0f, 1.0f, 0.0f);	//glrotate以逆时针旋转为正
 		glTranslatef(r.x, r.y, r.z);
 	}
-	vec ApplyTransform(vec v)//rotate only
+	vec<float> ApplyTransform(vec<float> v)//rotate only
 	{
-		vec v1, v2;
+		vec<float> v1, v2;
 
 		//模拟矩阵乘法
 		v1[1] = v[1];
@@ -52,7 +52,7 @@ public:
 
 		return v2;
 	}
-	vec ApplyInvTransform(vec v)
+	vec<float> ApplyInvTransform(vec<float> v)
 	{
 		throw runtime_error{ "func not implemented" };
 	}
@@ -67,7 +67,7 @@ public:
 	{
 		r.x += dx; r.y += dy; r.z += dz;
 	}
-	void Move(vec dr) { r = r + dr; }
+	void Move(vec<float> dr) { r = r + dr; }
 	//在本征坐标系中的移动
 	void MoveForward(float d)
 	{
@@ -90,7 +90,7 @@ public:
 class Character
 {
 private:
-	vec r;//位矢
+	vec<float> r;//位矢
 	float theta{ 0.0f }, phi{ 0.0f };
 	//theta 向左逆时针旋转的度数
 	//phi “抬头”的度数，-90-90
@@ -101,7 +101,7 @@ public:
 	Character();
 	~Character();
 
-	const vec& pos{ r };
+	const vec<float>& pos{ r };
 	void LookFrom() { camera.ApplyTransform(); }
 	void Rotate(float dtheta, float dphi)
 	{
@@ -114,9 +114,9 @@ public:
 	void Move(float dx, float dy, float dz)
 	{
 		r.x += dx; r.y += dy; r.z += dz;
-		camera.Move(vec(dx, dy, dz));
+		camera.Move(vec<float>(dx, dy, dz));
 	}
-	void Move(vec dr) { r = r + dr; camera.Move(dr); }
+	void Move(vec<float> dr) { r = r + dr; camera.Move(dr); }
 	//在本征坐标系中的移动
 	void MoveForward(float d)
 	{
@@ -136,13 +136,13 @@ public:
 		camera.MoveUp(d);
 	}
 	//一些矢量代数的Get函数
-	vec GetPos()
+	vec<float> GetPos()
 	{
 		return r;
 	}
-	vec GetForward()
+	vec<float> GetForward()
 	{
-		vec v;
+		vec<float> v;
 		v.x = -sin(rad(theta));
 		v.z = -cos(rad(theta));
 		v.x *= cos(rad(phi));
@@ -266,9 +266,9 @@ public:
 			//放置/破坏方块
 			if (mouse.LButton)
 			{
-				vec vFwd = player.GetForward();
-				vec vPos = player.GetPos();
-				vec vTgt;
+				vec<float> vFwd = player.GetForward();
+				vec<float> vPos = player.GetPos();
+				vec<float> vTgt;
 				for (float d = 0.0f; d < 5.0f; d += 0.05f)
 				{
 					vTgt = vPos + d*vFwd;
@@ -282,9 +282,9 @@ public:
 			}
 			if (mouse.RButton)
 			{
-				vec vFwd = player.GetForward();
-				vec vPos = player.GetPos();
-				vec vTgt;
+				vec<float> vFwd = player.GetForward();
+				vec<float> vPos = player.GetPos();
+				vec<float> vTgt;
 				for (float d = 0.0f; d < 5.0f; d += 0.05f)
 				{
 					vTgt = vPos + d*vFwd;
@@ -302,10 +302,10 @@ public:
 
 		//修正光源位置
 		//由于光源位置不受模型观察矩阵作用 故需要人为作用以修正
-		vec v1;
+		vec<float> v1;
 		for (int i = 0; i < 3; i++)
 			v1[i] = LightPosition[i];
-		vec v2 = player.camera.ApplyTransform(v1);
+		vec<float> v2 = player.camera.ApplyTransform(v1);
 		float LightPositionNew[4];
 		for (int i = 0; i < 3; i++)
 			LightPositionNew[i] = v2[i];

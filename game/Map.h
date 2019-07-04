@@ -10,7 +10,7 @@ const int chunk_size = 16;
 class Chunk
 {
 public:
-	vec r;//起点位置
+	vec<int> r;//起点位置
 	int arr[16][256][16];
 	list<Entity> entities;
 
@@ -19,7 +19,7 @@ public:
 	//	memset(arr, 0, sizeof(arr));
 	//	Init(filename);
 	//}
-	Chunk(vec& r) :r{ r }
+	Chunk(vec<int>& r) :r{ r }
 	{
 		memset(arr, 0, sizeof(arr));
 		char filename[99];
@@ -69,13 +69,13 @@ public:
 		fout << *this;
 	}
 
-	int& rl_at(int x, int y, int z)//按相对坐标取数据
+	inline int& rl_at(int x, int y, int z)//按相对坐标取数据
 	{
 		return arr[x][y][z];
 	}
-	int& abs_at(int x, int y, int z)//按绝对坐标
+	inline int& abs_at(int x, int y, int z)//按绝对坐标
 	{
-		return arr[x - (int)r.x][y - (int)r.y][z - (int)r.z];
+		return arr[x - r.x][y - r.y][z - r.z];
 	}
 
 private:
@@ -167,7 +167,7 @@ private:
 	deque<deque<Chunk*>> data;//arraies that really save data
 										//第一维对应x方向，第二维对应z方向
 	int loading_radius;			//加载半径，即实时加载（2r-1)*(2r-1)个区块
-	vec r;	//加载的那部分地图的中心区块所在位置
+	vec<int> r;	//加载的那部分地图的中心区块所在位置
 
 
 public:
@@ -179,15 +179,17 @@ public:
 	int& operator()(float x, float y, float z);
 	inline int& at(int x, int y, int z) { return this->operator()(x, y, z); }
 	inline int& at(float x, float y, float z) { return this->operator()(x, y, z); }
-	inline int& at(vec r) { return this->operator()(r.x, r.y, r.z); }
+	template<typename T>
+	inline int& at(vec<T> r) { return this->operator()(r.x, r.y, r.z); }
+	
 
 	//先把画方块的函数放到class里面
 	void RenderCube(float x, float y, float z, float a, int id);
 	//渲染以c为中心，半径为range的区域
-	void RenderAround(vec c, int Range = 16);
+	void RenderAround(vec<float> c, int Range = 16);
 	// Set the location of central Chunk,Data[5]
 	bool LoadAround(int x, int y, int z, bool SmartLoad = true);
-	inline bool LoadAround(vec r) { return LoadAround(r.x, r.y, r.z); }
+	inline bool LoadAround(vec<float> r) { return LoadAround(r.x, r.y, r.z); }
 };
 
 

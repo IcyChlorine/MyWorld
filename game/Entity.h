@@ -7,7 +7,7 @@
 class CollisionBox//碰撞箱对象
 {
 public:
-	vec r1, r2;//正方体碰撞箱的两个顶点坐标
+	vec<float> r1, r2;//正方体碰撞箱的两个顶点坐标
 	bool CollisionTest(const CollisionBox& c2) const//两个碰撞箱是否“碰撞”，即是否重叠
 	{
 		const CollisionBox& c1 = *this;
@@ -20,7 +20,7 @@ public:
 		//else
 		return true;
 	}
-	bool CollisionTest(const vec& r) const//与一个点的碰撞检测
+	bool CollisionTest(const vec<float>& r) const//与一个点的碰撞检测
 	{
 		if (r.x<min(r1.x, r2.x) || r.x>max(r1.x, r2.x))
 			return false;
@@ -39,7 +39,7 @@ inline bool CollisionTest(const CollisionBox& c1, const CollisionBox& c2)
 class Entity:public MyClass
 {
 public:
-	vec r;//位矢
+	vec<float> r;//位矢
 	CollisionBox cls_box;
 	bool collision_box_relative_to_r = true;//碰撞箱是不是本地坐标
 public:

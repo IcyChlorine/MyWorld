@@ -3,9 +3,9 @@
 
 Map::Map(int loading_radius) :loading_radius{ loading_radius }
 {
-	r = vec{ 0,0,0 };//特地强调
+	r = vec<int>{ 0,0,0 };//特地强调
 	if (loading_radius <= 0) loading_radius = 1;
-	LoadAround(r);
+	LoadAround(vec<float>{ 0,0,0 });
 }
 
 Map::~Map(void)
@@ -24,7 +24,7 @@ int& Map::operator()(int x,int y,int z)
 	//地图原点：r
 	rx=x-r.x;
 	rz=z-r.z;
-	if (rx < 0 || rz < 0 || y >= 256 || y < 0 || rx >= chunk_size*2*loading_radius || chunk_size * 2 * loading_radius)
+	if (rx < 0 || rz < 0 || y >= 256 || y < 0 || rx >= chunk_size*2*loading_radius || rz>=chunk_size * 2 * loading_radius)
 		//MessageBox(NULL,"Map Access Violation.","",MB_OK);
 		return WTF;//返回一个可以随意更改的变量
 	return (data[rz / 16][rx / 16]->rl_at(rx % 16, y, rz % 16));
@@ -113,7 +113,7 @@ void Map::RenderCube(float x, float y, float z, float a, int id)
 	return;
 }
 // 画！
-void Map::RenderAround(vec c,int Range)
+void Map::RenderAround(vec<float> c,int Range)
 {
 	glEnable(GL_TEXTURE_2D);
 //	glBindTexture(GL_TEXTURE_2D, texture);				// 选择纹理
@@ -142,7 +142,7 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 	//由于要处理负数，因此%/*不能使用，最好的方法就是用floor
 	x = (int)floor((float)x / 16) * 16;
 	z = (int)floor((float)z / 16) * 16;
-	vec rNew;	//vNewOrigin
+	vec<int> rNew;	//vNewOrigin
 	rNew[0] = x - 16 * loading_radius;
 	rNew[1] = 0;
 	rNew[2] = z - 16 * loading_radius;
@@ -157,8 +157,10 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 			data[i].resize(2 * loading_radius + 1);
 			for (int j = 0; j <= 2 * loading_radius; j++)
 				//data[i][j] = LoadChunk(vNew[0] + j * 16, 0, vNew[2] + i * 16);
-				data[i][j] = new Chunk(rNew + chunk_size*vec(i, 0, j));
+				data[i][j] = new Chunk(rNew + chunk_size*vec<int>(i, 0, j));
 		}
+		r = rNew;
+		return true;
 	}
 	else
 	{
@@ -171,14 +173,14 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 				for (int j = 0; j < data[i].size(); j++)
 				{
 					delete data[i][j];//chunk类的析构函数中包含了保存的过程了
-					data[i][j] = new Chunk(rNew + chunk_size*vec(i, 0, j));
+					data[i][j] = new Chunk(rNew + chunk_size*vec<int>(i, 0, j));
 				}
 			}
 		}
 		//以下是我辛苦钻研的滚动时加载技术
 		else//地图向某个方向前滚了一个Chunk，则只需要加载新靠近的Chunks，保存远去的Chunks即可
 		{
-			if (rNew[0] = r[0] + chunk_size)//x轴向正方向移动了一个区块
+			if (rNew[0] == r[0] + chunk_size)//x轴向正方向移动了一个区块
 			{
 				for (int j = 0; j < data.size(); j++)
 				{
@@ -187,9 +189,9 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 				data.push_back(data.front());
 				data.pop_front();//滚动式加载；类似链环旋转
 				for (int j = 0; j < data.size(); j++)
-					data[2 * loading_radius][j] = new Chunk(rNew + chunk_size*vec(2 * loading_radius, 0, j));
+					data[2 * loading_radius][j] = new Chunk(rNew + chunk_size*vec<int>(2 * loading_radius, 0, j));
 			}
-			else if (rNew[0] = r[0] - chunk_size)//x轴向正方向移动了一个区块
+			else if (rNew[0] == r[0] - chunk_size)//x轴向正方向移动了一个区块
 			{
 				for (int j = 0; j < data.size(); j++)
 				{
@@ -198,32 +200,28 @@ bool Map::LoadAround(int x, int y, int z, bool SmartLoad)
 				data.push_front(data.back());
 				data.pop_back();//滚动式加载；类似链环旋转
 				for (int j = 0; j < data.size(); j++)
-					data[0][j] = new Chunk(rNew + chunk_size*vec(0, 0, j));
+					data[0][j] = new Chunk(rNew + chunk_size*vec<int>(0, 0, j));
 			}
-			else if (rNew[2] = r[2] + chunk_size)//z轴向正方向移动了一个区块
+			else if (rNew[2] == r[2] + chunk_size)//z轴向正方向移动了一个区块
 			{
 				for (int i = 0; i < data.size();i++)
 				{
 					delete data[i][0];
 					data[i].pop_front();
-					data[i].push_back(new Chunk(rNew + chunk_size*vec(i, 0, 2 * loading_radius)));
+					data[i].push_back(new Chunk(rNew + chunk_size*vec<int>(i, 0, 2 * loading_radius)));
 				}
 			}
-			else if (rNew[2] = r[2] - chunk_size)//z轴向正方向移动了一个区块
+			else if (rNew[2] == r[2] - chunk_size)//z轴向正方向移动了一个区块
 			{
 				for (int i = 0; i < data.size(); i++)
 				{
 					delete data[i].back();
 					data[i].pop_back();
-					data[i].push_front(new Chunk(rNew + chunk_size*vec(i, 0, 0)));
+					data[i].push_front(new Chunk(rNew + chunk_size*vec<int>(i, 0, 0)));
 				}
 			}
 			r = rNew;
 			return true;
 		}
-	}
-
-
-	
-	
+	}	
 }
